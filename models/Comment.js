@@ -1,17 +1,17 @@
 const mongoose = require('mongoose');
 
 const commentSchema = new mongoose.Schema({
-  id: {
-    type: Number,
+  slug: {
+    type: String,
     required: true,
   },
   createdAt: {
     type: Date,
-    required: true,
+    default: Date.now,
   },
   updatedAt: {
     type: Date,
-    required: true,
+    default: Date.now,
   },
   body: {
     type: String,
@@ -24,7 +24,7 @@ const commentSchema = new mongoose.Schema({
     },
     bio: {
       type: String,
-      required: true,
+      default: null,
     },
     image: {
       type: String,
@@ -32,7 +32,7 @@ const commentSchema = new mongoose.Schema({
     },
     following: {
       type: Boolean,
-      required: true,
+      default: false,
     },
   },
 });

@@ -129,6 +129,10 @@ router.post('/', auth, async (req, res) => {
 // @access  Public
 router.get('/:slug', authOptional, async (req, res) => {
   try {
+    const article = await Article.findOne({
+      slug: req.params.slug,
+    });
+    res.json({ article });
   } catch (error) {
     console.error(error.message);
     res.status(500).send('Server Error');
@@ -140,6 +144,43 @@ router.get('/:slug', authOptional, async (req, res) => {
 // @access  Public
 router.put('/:slug', auth, async (req, res) => {
   try {
+    let article = await Article.findOne({
+      slug: req.params.slug,
+    });
+
+    if (article) {
+      const user = await User.findById(req.user.id).select(
+        '-_id -password -__v'
+      );
+      if (user.username === article.author.username) {
+        const { title, description, body, tagList } = req.body.article;
+
+        let controlArticle = await Article.findOne({ title });
+        if (controlArticle)
+          if (controlArticle.id !== article.id)
+            return res
+              .status(400)
+              .json({ errors: [{ msg: 'Article title already exists' }] });
+
+        const slug = title.toLowerCase().replace(/ /g, '-');
+        article = await Article.findOneAndUpdate(
+          { slug: req.params.slug },
+          {
+            slug,
+            title,
+            description,
+            body,
+            tagList,
+          },
+          { new: true }
+        );
+        res.json({ article });
+      } else {
+        return res.status(401).json({ errors: [{ msg: 'Unauthorized' }] });
+      }
+    } else {
+      res.status(400).json({ errors: [{ msg: 'Article not found' }] });
+    }
   } catch (error) {
     console.error(error.message);
     res.status(500).send('Server Error');
@@ -151,6 +192,23 @@ router.put('/:slug', auth, async (req, res) => {
 // @access  Public
 router.delete('/:slug', auth, async (req, res) => {
   try {
+    const article = await Article.findOne({
+      slug: req.params.slug,
+    });
+
+    if (article) {
+      const user = await User.findById(req.user.id).select(
+        '-_id -password -__v'
+      );
+      if (user.username === article.author.username) {
+        await article.remove();
+        res.json({ msg: 'Article removed' });
+      } else {
+        return res.status(401).json({ errors: [{ msg: 'Unauthorized' }] });
+      }
+    } else {
+      res.status(400).json({ errors: [{ msg: 'Article not found' }] });
+    }
   } catch (error) {
     console.error(error.message);
     res.status(500).send('Server Error');
