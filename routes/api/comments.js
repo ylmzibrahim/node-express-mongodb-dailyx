@@ -15,10 +15,38 @@ router.get('/:slug/comments', authOptional, async (req, res) => {
     });
     if (!article) return res.status(404).json({ msg: 'Article not found' });
 
+    let followingUsernames = [];
+
     const comments = await Comment.find({
       slug: req.params.slug,
     }).sort({ createdAt: -1 });
-    res.json({ comments });
+
+    // Check if user is logged in
+    if (req.user !== undefined) {
+      // Get all usernames of current user follow
+      const currentUser = await User.findById(req.user.id).select('-password');
+      let promise = currentUser.following.map(async (id) => {
+        const user = await User.findById(id).select('username');
+        followingUsernames.push(user.username);
+      });
+
+      Promise.all(promise).then(async () => {
+        // Get all articles of current user follow
+        let promise2 = comments.map(async (comment) => {
+          if (comment.author.username !== currentUser.username) {
+            if (followingUsernames.includes(comment.author.username)) {
+              comment.author.following = true;
+            }
+          }
+        });
+
+        Promise.all(promise2).then(async () => {
+          res.json({ comments });
+        });
+      });
+    } else {
+      res.json({ comments });
+    }
   } catch (error) {
     console.error(error.message);
     res.status(500).send('Server Error');

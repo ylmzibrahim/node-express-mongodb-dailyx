@@ -15,25 +15,31 @@ const Article = require('../../models/Article');
 // @access  Public
 router.get('/feed', auth, async (req, res) => {
   try {
-    const currentUser = await User.findById(req.user.id).select(
-      '-_id -password -__v'
-    );
+    const currentUser = await User.findById(req.user.id).select('-password');
     const limit = req.query.limit || 20;
     const offset = req.query.offset || 0;
     let followingUsernames = [currentUser.username];
 
+    // Get all usernames of current user follow
     let promise = currentUser.following.map(async (id) => {
       const user = await User.findById(id).select('username');
       followingUsernames.push(user.username);
     });
 
     Promise.all(promise).then(async () => {
+      // Get all articles of current user follow
       const articles = await Article.find({
         'author.username': { $in: followingUsernames },
       })
         .sort({ createdAt: -1 })
         .skip(offset)
         .limit(limit);
+
+      articles.map(async (article) => {
+        if (currentUser.favorited.includes(article.id))
+          article.favorited = true;
+      });
+
       res.json({ articles });
     });
   } catch (error) {
@@ -58,9 +64,7 @@ router.get('/', authOptional, async (req, res) => {
 
     // Check if user is logged in and if favorited is set to true
     if (favorited && req.user !== undefined) {
-      const user = await User.findById(req.user.id).select(
-        '-_id -password -__v'
-      );
+      const user = await User.findById(req.user.id).select('-password');
       user.favorited.forEach(async (id) => {
         favoritedIds.push(id);
       });
@@ -79,6 +83,14 @@ router.get('/', authOptional, async (req, res) => {
       .sort({ createdAt: -1 })
       .skip(offset)
       .limit(limit);
+
+    if (req.user !== undefined) {
+      const user = await User.findById(req.user.id).select('-password');
+      articles.map(async (article) => {
+        if (user.favorited.includes(article.id)) article.favorited = true;
+      });
+    }
+
     res.json({ articles });
   } catch (error) {
     console.error(error.message);
