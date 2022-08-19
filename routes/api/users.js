@@ -1,11 +1,11 @@
 const express = require('express');
+const mongoose = require('mongoose');
 const router = express.Router();
 const gravatar = require('gravatar');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const config = require('config');
 const { check, validationResult } = require('express-validator');
-
 const User = require('../../models/User');
 
 // @route   POST api/users/login
@@ -14,18 +14,18 @@ const User = require('../../models/User');
 router.post(
   '/login',
   [
-    check('email', 'Please include a valid email').isEmail(),
-    check('password', 'Password is required').exists(),
+    check('user.email', 'Please include a valid email').isEmail(),
+    check('user.password', 'Password is required').exists(),
   ],
   async (req, res) => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
-    }
-
-    const { email, password } = req.body;
-
     try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ errors: errors.array() });
+      }
+
+      const { email, password } = req.body.user;
+
       let user = await User.findOne({ email });
 
       if (!user)
@@ -50,9 +50,13 @@ router.post(
         payload,
         config.get('jwtSecret'),
         { expiresIn: 360000 },
-        (err, token) => {
+        async (err, token) => {
           if (err) throw err;
-          res.json({ token });
+          await user.updateOne({ token });
+          const userInfo = await User.findById(user.id).select(
+            '-_id -password -__v'
+          );
+          res.json({ user: userInfo });
         }
       );
     } catch (error) {
@@ -68,22 +72,22 @@ router.post(
 router.post(
   '/',
   [
-    check('username', 'Username is required').not().isEmpty(),
-    check('email', 'Please include a valid email').isEmail(),
+    check('user.username', 'Username is required').not().isEmpty(),
+    check('user.email', 'Please include a valid email').isEmail(),
     check(
-      'password',
+      'user.password',
       'Please enter a password with 6 or more characters'
     ).isLength({ min: 6 }),
   ],
   async (req, res) => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
-    }
-
-    const { username, email, password } = req.body;
-
     try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ errors: errors.array() });
+      }
+
+      const { username, email, password } = req.body.user;
+
       if (await User.findOne({ username, email }))
         return res
           .status(400)
@@ -114,8 +118,6 @@ router.post(
 
       user.password = await bcrypt.hash(password, salt);
 
-      await user.save();
-
       const payload = {
         user: {
           id: user.id,
@@ -126,9 +128,14 @@ router.post(
         payload,
         config.get('jwtSecret'),
         { expiresIn: 360000 },
-        (err, token) => {
+        async (err, token) => {
           if (err) throw err;
-          res.json({ token });
+          user.token = token;
+          await user.save();
+          const userInfo = await User.findById(user.id).select(
+            '-_id -password -__v'
+          );
+          res.json({ user: userInfo });
         }
       );
     } catch (error) {

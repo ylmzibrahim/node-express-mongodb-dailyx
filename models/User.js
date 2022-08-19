@@ -19,10 +19,14 @@ const userSchema = new mongoose.Schema({
   },
   bio: {
     type: String,
+    default: null,
   },
   image: {
     type: String,
   },
+  following: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+  favorited: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Article' }],
+  articles: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Article' }],
   date: {
     type: Date,
     default: Date.now,

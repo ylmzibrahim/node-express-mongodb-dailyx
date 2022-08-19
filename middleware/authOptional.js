@@ -4,7 +4,7 @@ const config = require('config');
 module.exports = (req, res, next) => {
   // Get token from header
   if (req.header('authorization') === undefined)
-    return res.status(401).json({ msg: 'No token, authorization denied' });
+    return next();
 
   try {
     const token = req.header('authorization').split('Bearer ')[1];
